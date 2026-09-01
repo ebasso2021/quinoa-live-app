@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Pedido confirmado — Quinoa</title>
+<title>Quinoa</title>
 <link rel="manifest" href="/manifest.json" />
 <link rel="icon" href="/icons/icon-192.png" />
 <link rel="stylesheet" href="/styles.css" />
@@ -11,11 +11,12 @@
 <body class="status-page">
   <main class="status-card">
     <div id="status-icon" class="status-icon">⏳</div>
-    <h1 id="status-title">Confirmando tu pago…</h1>
-    <p id="status-message">Un momento por favor.</p>
+    <h1 id="status-title">Confirming your payment…</h1>
+    <p id="status-message">One moment please.</p>
     <div id="order-details" class="order-details" hidden></div>
-    <a href="/" class="checkout-button status-back">Volver al menú</a>
+    <a href="/" class="checkout-button status-back" id="status-back">Back to menu</a>
   </main>
+  <script src="/i18n.js"></script>
   <script src="/app-status.js"></script>
 </body>
 </html>

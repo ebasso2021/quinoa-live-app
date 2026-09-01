@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Pago cancelado — Quinoa</title>
+<title>Quinoa</title>
 <link rel="manifest" href="/manifest.json" />
 <link rel="icon" href="/icons/icon-192.png" />
 <link rel="stylesheet" href="/styles.css" />
@@ -11,9 +11,22 @@
 <body class="status-page">
   <main class="status-card">
     <div class="status-icon">↩️</div>
-    <h1>Pago cancelado</h1>
-    <p>No se realizó ningún cargo. Tu carrito sigue guardado, puedes intentarlo de nuevo cuando quieras.</p>
-    <a href="/" class="checkout-button status-back">Volver al menú</a>
+    <h1 id="cancel-title">Payment cancelled</h1>
+    <p id="cancel-message">No charge was made. Your cart is still saved — you can try again whenever you like.</p>
+    <a href="/" class="checkout-button status-back" id="cancel-back">Back to menu</a>
   </main>
+  <script src="/i18n.js"></script>
+  <script>
+    // Traduce esta pantalla al idioma elegido / Translate this screen.
+    (function () {
+      const lang = window.QuinoaLang.current();
+      const t = (k) => window.QuinoaLang.t(k, lang);
+      document.documentElement.lang = lang;
+      document.getElementById("cancel-title").textContent = t("cancel.title");
+      document.getElementById("cancel-message").textContent = t("cancel.message");
+      document.getElementById("cancel-back").textContent = t("status.back");
+      document.title = "Quinoa — " + t("cancel.title");
+    })();
+  </script>
 </body>
 </html>

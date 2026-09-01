@@ -1,7 +1,14 @@
-// Lógica de la página de éxito: confirma el pago contra el servidor (que a su
-// vez confirma contra Stripe) y limpia el carrito guardado localmente.
+// Pantalla de "pedido confirmado": confirma el pago contra el servidor (que a
+// su vez lo confirma con Stripe) y limpia el carrito guardado.
+// "Order confirmed" screen: confirms the payment against the server (which in
+// turn confirms it with Stripe) and clears the saved cart.
 (function () {
   const CART_KEY = "quinoa_cart_v1";
+  const L = window.QuinoaLang;
+  const lang = L.current();
+  const t = (key) => L.t(key, lang);
+  const field = (value) => L.field(value, lang);
+
   const params = new URLSearchParams(window.location.search);
   const sessionId = params.get("session_id");
 
@@ -9,48 +16,80 @@
   const titleEl = document.getElementById("status-title");
   const msgEl = document.getElementById("status-message");
   const detailsEl = document.getElementById("order-details");
+  const backEl = document.getElementById("status-back");
+
+  document.documentElement.lang = lang;
+  backEl.textContent = t("status.back");
+  backEl.href = "/?lang=" + lang;
+  titleEl.textContent = t("status.confirmingTitle");
+  msgEl.textContent = t("status.confirmingMessage");
+  document.title = "Quinoa — " + t("status.confirmedTitle");
 
   function money(cents, currency) {
-    // "en-CA" da el formato canadiense limpio: $10.50
     return (cents / 100).toLocaleString("en-CA", {
       style: "currency",
       currency: (currency || "cad").toUpperCase()
     });
   }
 
+  function show(icon, titleKey, messageKey) {
+    iconEl.textContent = icon;
+    titleEl.textContent = t(titleKey);
+    msgEl.textContent = t(messageKey);
+  }
+
+  function renderOrder(order, currency) {
+    detailsEl.hidden = false;
+    detailsEl.innerHTML = "";
+
+    const number = document.createElement("strong");
+    number.textContent = t("status.orderNumber") + order.orderId;
+    detailsEl.appendChild(number);
+    detailsEl.appendChild(document.createElement("br"));
+
+    const type = document.createElement("span");
+    type.textContent =
+      order.customer.orderType === "delivery" ? t("status.delivery") : t("status.pickup");
+    detailsEl.appendChild(type);
+    detailsEl.appendChild(document.createElement("br"));
+
+    // Los platillos se guardaron en los dos idiomas, así que se muestran
+    // en el que el cliente tenga elegido ahora.
+    if (Array.isArray(order.items)) {
+      for (const item of order.items) {
+        const line = document.createElement("div");
+        line.textContent = `${item.qty} × ${field(item.name)}`;
+        detailsEl.appendChild(line);
+      }
+    }
+
+    const total = document.createElement("div");
+    total.textContent = `${t("status.total")} ${money(order.total, currency)}`;
+    detailsEl.appendChild(total);
+  }
+
   async function check() {
     if (!sessionId) {
-      iconEl.textContent = "⚠️";
-      titleEl.textContent = "No encontramos tu pedido";
-      msgEl.textContent = "Vuelve al menú e intenta de nuevo.";
+      show("⚠️", "status.notFoundTitle", "status.notFoundMessage");
       return;
     }
     try {
       const res = await fetch(`/api/order-status?session_id=${encodeURIComponent(sessionId)}`);
       const data = await res.json();
+
       if (data.paid) {
-        localStorage.removeItem(CART_KEY);
-        iconEl.textContent = "✅";
-        titleEl.textContent = "¡Pedido confirmado!";
-        msgEl.textContent = "Gracias por tu compra. Tu pago fue procesado correctamente.";
-        if (data.order) {
-          const o = data.order;
-          detailsEl.hidden = false;
-          detailsEl.innerHTML = `
-            <strong>Pedido #${o.orderId}</strong><br/>
-            ${o.customer.orderType === "delivery" ? "Entrega a domicilio" : "Recoger en tienda"}<br/>
-            Total: ${money(o.total, data.currency)}
-          `;
+        try {
+          localStorage.removeItem(CART_KEY);
+        } catch {
+          /* si el navegador bloquea el borrado, no pasa nada grave */
         }
+        show("✅", "status.confirmedTitle", "status.confirmedMessage");
+        if (data.order) renderOrder(data.order, data.currency);
       } else {
-        iconEl.textContent = "⏳";
-        titleEl.textContent = "Aún procesando tu pago…";
-        msgEl.textContent = "Si acabas de pagar, espera unos segundos y recarga esta página.";
+        show("⏳", "status.processingTitle", "status.processingMessage");
       }
-    } catch (err) {
-      iconEl.textContent = "⚠️";
-      titleEl.textContent = "No se pudo confirmar el pago";
-      msgEl.textContent = "Revisa tu conexión e intenta recargar la página.";
+    } catch {
+      show("⚠️", "status.errorTitle", "status.errorMessage");
     }
   }
 

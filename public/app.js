@@ -1,16 +1,20 @@
-// Lógica de la app Quinoa: carga el menú, maneja el carrito y arranca el pago con tarjeta.
+// Lógica de la app Quinoa: idioma, menú, carrito y pago con tarjeta.
+// Quinoa app logic: language, menu, cart and card payment.
 (function () {
   const CART_KEY = "quinoa_cart_v1";
+  const L = window.QuinoaLang;
 
   const state = {
     menu: null,
-    cart: loadCart(), // { [itemId]: qty }
-    config: null
+    config: null,
+    lang: L.current(),
+    cart: loadCart() // { [itemId]: qty }
   };
 
   const els = {
     menuRoot: document.getElementById("menu-root"),
     businessName: document.getElementById("business-name"),
+    langTabs: document.querySelectorAll(".lang-tab"),
     cartButton: document.getElementById("cart-button"),
     cartCount: document.getElementById("cart-count"),
     cartDrawer: document.getElementById("cart-drawer"),
@@ -29,6 +33,9 @@
     offlineBanner: document.getElementById("offline-banner")
   };
 
+  const t = (key) => L.t(key, state.lang);
+  const field = (value) => L.field(value, state.lang);
+
   function loadCart() {
     try {
       return JSON.parse(localStorage.getItem(CART_KEY)) || {};
@@ -37,17 +44,58 @@
     }
   }
   function saveCart() {
-    localStorage.setItem(CART_KEY, JSON.stringify(state.cart));
+    try {
+      localStorage.setItem(CART_KEY, JSON.stringify(state.cart));
+    } catch {
+      /* si el navegador bloquea el guardado, el carrito dura solo esta visita */
+    }
   }
 
+  // El formato canadiense ($10.50) se usa en los dos idiomas: es el que
+  // reconocen los clientes en Canadá y evita textos como "CAD 10.50".
   function money(cents) {
-    // "en-CA" da el formato canadiense limpio: $10.50
-    return (cents / 100).toLocaleString("en-CA", {
-      style: "currency",
-      currency: (state.config && state.config.currency || "usd").toUpperCase()
+    const currency = ((state.config && state.config.currency) || "cad").toUpperCase();
+    return (cents / 100).toLocaleString("en-CA", { style: "currency", currency });
+  }
+
+  // ---------- Idioma / Language ----------
+  function applyTranslations() {
+    document.documentElement.lang = state.lang;
+
+    document.querySelectorAll("[data-i18n]").forEach((el) => {
+      el.textContent = t(el.getAttribute("data-i18n"));
+    });
+    document.querySelectorAll("[data-i18n-aria]").forEach((el) => {
+      el.setAttribute("aria-label", t(el.getAttribute("data-i18n-aria")));
+    });
+    document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+      el.setAttribute("placeholder", t(el.getAttribute("data-i18n-placeholder")));
+    });
+    document.querySelectorAll("[data-i18n-content]").forEach((el) => {
+      el.setAttribute("content", t(el.getAttribute("data-i18n-content")));
+    });
+
+    els.langTabs.forEach((tab) => {
+      const selected = tab.getAttribute("data-lang") === state.lang;
+      tab.setAttribute("aria-selected", selected ? "true" : "false");
+      tab.classList.toggle("active", selected);
     });
   }
 
+  function setLanguage(lang) {
+    if (lang === state.lang) return;
+    state.lang = lang;
+    L.set(lang);
+    applyTranslations();
+    renderMenu();
+    renderCart();
+  }
+
+  els.langTabs.forEach((tab) => {
+    tab.addEventListener("click", () => setLanguage(tab.getAttribute("data-lang")));
+  });
+
+  // ---------- Menú / Menu ----------
   function findItem(itemId) {
     if (!state.menu) return null;
     for (const cat of state.menu.categories) {
@@ -70,7 +118,6 @@
     return total;
   }
 
-  // ---------- Render del menú ----------
   function renderMenu() {
     if (!state.menu) return;
     els.businessName.textContent = (state.config && state.config.businessName) || "Quinoa";
@@ -80,12 +127,9 @@
       const section = document.createElement("section");
       section.className = "menu-category";
       const h2 = document.createElement("h2");
-      h2.textContent = cat.name;
+      h2.textContent = field(cat.name);
       section.appendChild(h2);
-
-      for (const item of cat.items) {
-        section.appendChild(renderMenuItem(item));
-      }
+      for (const item of cat.items) section.appendChild(renderMenuItem(item));
       frag.appendChild(section);
     }
     els.menuRoot.innerHTML = "";
@@ -98,13 +142,19 @@
 
     const img = document.createElement("img");
     img.src = item.image;
-    img.alt = item.name;
+    img.alt = field(item.name);
     img.loading = "lazy";
     row.appendChild(img);
 
     const info = document.createElement("div");
     info.className = "menu-item-info";
-    info.innerHTML = `<h3>${escapeHtml(item.name)}</h3><p>${escapeHtml(item.description || "")}</p>`;
+
+    const h3 = document.createElement("h3");
+    h3.textContent = field(item.name);
+    const p = document.createElement("p");
+    p.textContent = field(item.description);
+    info.appendChild(h3);
+    info.appendChild(p);
 
     const footer = document.createElement("div");
     footer.className = "menu-item-footer";
@@ -126,7 +176,7 @@
     if (qty === 0) {
       const btn = document.createElement("button");
       btn.className = "add-button";
-      btn.textContent = "Agregar";
+      btn.textContent = t("menu.add");
       btn.addEventListener("click", () => changeQty(itemId, 1));
       wrap.appendChild(btn);
       return wrap;
@@ -160,13 +210,17 @@
     renderCart();
   }
 
-  // ---------- Carrito ----------
+  // ---------- Carrito / Cart ----------
   function renderCart() {
     els.cartCount.textContent = cartCount();
 
     const entries = Object.entries(state.cart);
     if (entries.length === 0) {
-      els.cartItems.innerHTML = '<p class="cart-empty">Tu carrito está vacío.</p>';
+      const empty = document.createElement("p");
+      empty.className = "cart-empty";
+      empty.textContent = t("cart.empty");
+      els.cartItems.innerHTML = "";
+      els.cartItems.appendChild(empty);
     } else {
       els.cartItems.innerHTML = "";
       for (const [id, qty] of entries) {
@@ -174,12 +228,17 @@
         if (!item) continue;
         const row = document.createElement("div");
         row.className = "cart-item-row";
-        row.innerHTML = `<span>${qty} × ${escapeHtml(item.name)}</span><span>${money(item.price * qty)}</span>`;
+        const left = document.createElement("span");
+        left.textContent = `${qty} × ${field(item.name)}`;
+        const right = document.createElement("span");
+        right.textContent = money(item.price * qty);
+        row.appendChild(left);
+        row.appendChild(right);
         els.cartItems.appendChild(row);
       }
     }
 
-    const orderType = els.customerForm.elements["orderType"].value;
+    const orderType = els.customerForm.querySelector('input[name="orderType"]:checked').value;
     const subtotal = cartSubtotal();
     const delivery = orderType === "delivery" && subtotal > 0 ? 300 : 0;
 
@@ -202,32 +261,29 @@
     els.cartDrawer.setAttribute("aria-hidden", "false");
     els.cartOverlay.hidden = false;
   }
-  function closeCartFn() {
+  function closeCart() {
     els.cartDrawer.classList.remove("open");
     els.cartDrawer.setAttribute("aria-hidden", "true");
     els.cartOverlay.hidden = true;
   }
 
   els.cartButton.addEventListener("click", openCart);
-  els.closeCart.addEventListener("click", closeCartFn);
-  els.cartOverlay.addEventListener("click", closeCartFn);
+  els.closeCart.addEventListener("click", closeCart);
+  els.cartOverlay.addEventListener("click", closeCart);
 
-  els.customerForm.elements["orderType"].forEach && null; // no-op guard
   document.querySelectorAll('input[name="orderType"]').forEach((radio) => {
     radio.addEventListener("change", () => {
-      els.addressField.hidden = radio.value !== "delivery" ? true : false;
-      // Only toggle based on the checked one:
       const checked = els.customerForm.querySelector('input[name="orderType"]:checked').value;
-      els.addressField.hidden = checked !== "delivery";
-      els.addressField.querySelector("textarea").required = checked === "delivery";
+      const isDelivery = checked === "delivery";
+      els.addressField.hidden = !isDelivery;
+      els.addressField.querySelector("textarea").required = isDelivery;
       renderCart();
     });
   });
 
-  // ---------- Checkout ----------
+  // ---------- Pago / Checkout ----------
   els.checkoutButton.addEventListener("click", async () => {
     els.checkoutError.hidden = true;
-
     if (!els.customerForm.reportValidity()) return;
 
     const formData = new FormData(els.customerForm);
@@ -244,47 +300,46 @@
     if (items.length === 0) return;
 
     els.checkoutButton.disabled = true;
-    els.checkoutButton.textContent = "Redirigiendo a pago seguro…";
+    els.checkoutButton.textContent = t("checkout.redirecting");
 
     try {
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items, customer })
+        body: JSON.stringify({ items, customer, lang: state.lang })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "No se pudo iniciar el pago.");
-      // No borramos el carrito todavía: si el usuario cancela el pago,
+      if (!res.ok) {
+        // El servidor manda un código fijo; aquí se traduce al idioma actual.
+        throw new Error(data.code ? t("error." + data.code) : t("error.CHECKOUT_FAILED"));
+      }
+      // El carrito no se borra todavía: si el cliente cancela el pago,
       // queremos que lo encuentre intacto al volver.
       window.location.href = data.url;
     } catch (err) {
-      els.checkoutError.textContent = err.message;
+      const known = err && err.message && err.message !== "Failed to fetch";
+      els.checkoutError.textContent = known ? err.message : t("error.NETWORK");
       els.checkoutError.hidden = false;
       els.checkoutButton.disabled = false;
-      els.checkoutButton.textContent = "Pagar con tarjeta 💳";
+      els.checkoutButton.textContent = t("checkout.pay");
     }
   });
 
-  function escapeHtml(str) {
-    const div = document.createElement("div");
-    div.textContent = str;
-    return div.innerHTML;
-  }
-
-  // ---------- Carga inicial ----------
+  // ---------- Arranque / Startup ----------
   async function init() {
+    applyTranslations();
     try {
-      const [configRes, menuRes] = await Promise.all([
-        fetch("/api/config"),
-        fetch("/api/menu")
-      ]);
+      const [configRes, menuRes] = await Promise.all([fetch("/api/config"), fetch("/api/menu")]);
       state.config = await configRes.json();
       state.menu = await menuRes.json();
       renderMenu();
       renderCart();
-    } catch (err) {
-      els.menuRoot.innerHTML =
-        '<p class="loading">No se pudo cargar el menú. Verifica tu conexión e intenta de nuevo.</p>';
+    } catch {
+      const p = document.createElement("p");
+      p.className = "loading";
+      p.textContent = t("menu.loadError");
+      els.menuRoot.innerHTML = "";
+      els.menuRoot.appendChild(p);
     }
   }
 

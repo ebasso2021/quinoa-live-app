@@ -2,12 +2,13 @@
 // funcione (mostrando lo último visto) aunque la conexión sea mala.
 // Las llamadas a /api/* SIEMPRE van a la red (nunca a la caché), porque el
 // menú, los precios y el pago deben ser siempre datos frescos y reales.
-const CACHE_NAME = "quinoa-cache-v2";
+const CACHE_NAME = "quinoa-cache-v3";
 const CORE_ASSETS = [
   "/",
   "/index.html",
   "/styles.css",
   "/app.js",
+  "/i18n.js",
   "/manifest.json",
   "/icons/icon-192.png",
   "/icons/icon-512.png"

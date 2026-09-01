@@ -1,7 +1,8 @@
 {
-  "name": "Quinoa - Pedidos en línea",
+  "name": "Quinoa - Order online",
   "short_name": "Quinoa",
-  "description": "Ordena tus platillos favoritos de Quinoa y paga con tarjeta desde tu celular.",
+  "description": "Order your favourite Quinoa dishes and pay by card from your phone.",
+  "lang": "en",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

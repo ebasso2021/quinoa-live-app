@@ -56,6 +56,26 @@ También puedes cambiar el nombre del negocio y la moneda en `.env`
 en dólares canadienses (`"cad"`); si algún día cambias de país, ahí puedes
 poner `"usd"`, `"mxn"`, `"eur"`, etc.
 
+## 4b. Idiomas (inglés y español)
+
+La app está en los dos idiomas, con pestañas arriba a la derecha. **El idioma
+por defecto es inglés**; cuando alguien elige español, su navegador lo
+recuerda para las próximas visitas.
+
+Dónde se cambia cada cosa:
+
+- **Textos de la interfaz** (botones, formulario, mensajes): `public/i18n.js`.
+  Cada texto tiene su clave con la versión en `en` y en `es`. Si agregas un
+  texto nuevo, ponlo en **las dos listas**.
+- **Platillos, descripciones y categorías**: `server/menu.js`. Cada nombre y
+  descripción se escribe así: `{ en: "Classic Bowl", es: "Bowl Clásico" }`.
+- **Mensajes de error del servidor**: el servidor manda un código fijo
+  (por ejemplo `CART_EMPTY`) y el navegador lo traduce con la clave
+  `error.CART_EMPTY` de `public/i18n.js`. Así el servidor no necesita saber
+  en qué idioma está viendo la app cada cliente.
+
+La página de pago de Stripe también sale en el idioma que el cliente eligió.
+
 ## 5. Arrancar el servidor
 
 ```
