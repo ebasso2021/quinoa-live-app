@@ -161,28 +161,40 @@ completa (sin la barra del navegador).
 
 ```
 quinoa-live app/
-├── api/
-│   └── index.js        punto de entrada para Vercel (función serverless)
+├── api/                 cada archivo = una dirección de la API en Vercel
+│   ├── config.js         -> /api/config
+│   ├── menu.js           -> /api/menu
+│   ├── checkout.js       -> /api/checkout
+│   ├── order-status.js   -> /api/order-status
+│   ├── orders.js         -> /api/orders
+│   └── storage-status.js -> /api/storage-status  (diagnóstico)
 ├── server/
-│   ├── app.js           la app de Express (rutas, Stripe) — la usan tanto
-│   │                     el servidor local como Vercel
-│   ├── index.js          arranca el servidor en tu computadora (npm start)
-│   ├── store.js           guarda los pedidos (archivo local, o Redis en Vercel)
-│   ├── menu.js            el menú del restaurante (edítalo aquí)
-│   └── data/orders.json    pedidos guardados en local (se crea solo)
-├── public/
-│   ├── index.html      pantalla principal (menú + carrito)
-│   ├── success.html     pantalla de "pedido confirmado"
-│   ├── cancel.html       pantalla de "pago cancelado"
-│   ├── app.js            lógica del menú/carrito/checkout
-│   ├── styles.css        estilos (colores, tema visual)
-│   ├── manifest.json     configuración de instalación como app
-│   ├── service-worker.js  hace la app instalable y más rápida
-│   └── icons/             íconos de la app
-├── vercel.json          le dice a Vercel cómo servir /public y /api
-├── .env.example        plantilla de configuración (cópiala a .env)
+│   ├── handlers.js      LA LÓGICA de la API — la usan tanto Vercel como
+│   │                     el servidor local, para no duplicar código
+│   ├── app.js            servidor Express, solo para tu computadora
+│   ├── index.js           arranca ese servidor (npm start)
+│   ├── store.js            guarda los pedidos (archivo local / Redis en Vercel)
+│   ├── menu.js              el menú del restaurante (edítalo aquí)
+│   └── data/orders.json      pedidos guardados en local (se crea solo)
+├── public/               todo esto lo sirve Vercel como archivos estáticos
+│   ├── index.html         pantalla principal (menú + carrito)
+│   ├── success.html        pantalla de "pedido confirmado"
+│   ├── cancel.html          pantalla de "pago cancelado"
+│   ├── app.js               lógica del menú/carrito/checkout
+│   ├── i18n.js               textos en inglés y español
+│   ├── app-status.js          lógica de la pantalla de confirmación
+│   ├── styles.css              estilos (colores, tema visual)
+│   ├── manifest.json            configuración de instalación como app
+│   ├── service-worker.js         hace la app instalable y más rápida
+│   └── icons/                     íconos de la app
+├── .env.example         plantilla de configuración (cópiala a .env)
+├── start-quinoa.bat     arranca el servidor local con doble clic (Windows)
 └── package.json
 ```
+
+No hay `vercel.json`: Vercel convierte solo cada archivo de `api/` en una
+función y sirve `public/` como sitio estático. Esa convención por archivos es
+la más estable de la plataforma y no depende de ninguna configuración.
 
 ## 11. Desplegar en Vercel (para tener la app en internet)
 
@@ -225,23 +237,82 @@ Pasos:
    Vercel. Después de agregar variables, vuelve a desplegar con
    `vercel --prod` para que se apliquen.
 
-5. **Conecta una base de datos para que los pedidos no se pierdan**: en tu
-   proyecto en Vercel → **Storage** → **Marketplace** (o **Create Database**,
-   el nombre exacto puede variar) → busca **Upstash** o cualquier integración
-   de **Redis** → conéctala a este proyecto. Vercel agrega las variables de
-   entorno necesarias automáticamente. Vuelve a desplegar
-   (`vercel --prod`) una vez conectada.
-
-   Nota: "Vercel KV" (el almacenamiento propio que Vercel ofrecía antes) ya
-   no existe — lo reemplazaron por integraciones de Redis de terceros como
-   Upstash, disponibles gratis para uso ligero. `server/store.js` ya está
-   escrito para funcionar con Upstash automáticamente en cuanto lo conectes.
+5. **Conecta la base de datos para que los pedidos no se pierdan** (ver la
+   sección 12, que lo explica paso a paso).
 
 6. **Cada vez que cambies el código** (por ejemplo, el menú en
    `server/menu.js`), vuelve a correr `vercel --prod` para publicar los
    cambios.
 
-## 12. Dudas frecuentes
+## 12. Dónde se guardan los pedidos (y cómo conectar la base de datos)
+
+Depende de dónde esté corriendo la app:
+
+| Dónde corre | Dónde se guarda | ¿Se conserva? |
+|---|---|---|
+| Tu computadora (`npm start`) | `server/data/orders.json` | Sí |
+| Vercel **con** Redis conectado | Base de datos Upstash | Sí |
+| Vercel **sin** Redis | Solo en memoria | **No, se pierden** |
+
+En Vercel la app corre como funciones que se prenden y se apagan solas, y su
+disco se borra: por eso no se puede usar un archivo como base de datos y hace
+falta conectar Redis.
+
+### Cómo saber en qué estado estás
+
+Abre esta dirección en tu app publicada:
+
+```
+https://tu-app.vercel.app/api/storage-status
+```
+
+Te responde algo así:
+
+```json
+{
+  "storage": { "type": "redis", "ok": true, "envVar": "UPSTASH_REDIS_REST_URL",
+               "detail": "Base de datos conectada y funcionando..." },
+  "payments": { "ok": true, "detail": "Claves de Stripe configuradas..." },
+  "readyToTakeOrders": true
+}
+```
+
+Cuando `readyToTakeOrders` sea `true`, la app ya puede recibir y guardar
+pedidos de verdad. Si algo está mal, el campo `detail` dice exactamente qué
+falta. (Esta página no muestra ninguna clave ni contraseña.)
+
+### Conectar Redis (Upstash), paso a paso
+
+1. En [vercel.com](https://vercel.com), entra a tu proyecto.
+2. Pestaña **Storage** → botón **Create Database** o **Browse Marketplace**.
+3. Busca **Upstash** (aparece como "Upstash for Redis") y elígelo. Cualquier
+   otra integración de Redis del Marketplace también sirve.
+4. Elige el plan gratuito, dale un nombre y confirma que se conecte **a este
+   proyecto**.
+5. Vercel agrega solo las variables de entorno necesarias — no tienes que
+   copiar ni pegar nada.
+6. **Vuelve a desplegar** para que la app las tome: pestaña **Deployments** →
+   menú (⋯) del último → **Redeploy**.
+7. Abre `/api/storage-status` y confirma que diga `"type": "redis"` y
+   `"ok": true`.
+
+Nota: "Vercel KV", el almacenamiento propio que Vercel ofrecía antes, ya no
+existe — lo reemplazaron por integraciones de terceros como Upstash, gratis
+para volúmenes pequeños. El código ya está preparado y detecta las
+credenciales aunque la integración las nombre de forma distinta.
+
+### Cómo ver los pedidos
+
+Por ahora, en `https://tu-app.vercel.app/api/orders` — una lista en formato
+JSON, sin contraseña. Sirve para probar, **no para operar el negocio**: antes
+de abrir al público conviene agregarle una pantalla con contraseña.
+
+Mientras tanto, **Stripe te manda un correo por cada pago** y en su panel
+puedes ver el detalle de cada pedido: los platillos aparecen como conceptos
+de la compra, y el nombre, teléfono, tipo de pedido, dirección y notas van
+guardados en los datos adicionales ("metadata") de cada pago.
+
+## 13. Dudas frecuentes
 
 **¿Por qué no una app "de verdad" en la Play Store / App Store?**
 Se puede hacer más adelante — de hecho, este mismo proyecto se puede

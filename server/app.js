@@ -18,6 +18,7 @@ app.get("/api/menu", handlers.menu);
 app.post("/api/checkout", handlers.checkout);
 app.get("/api/order-status", handlers.orderStatus);
 app.get("/api/orders", handlers.orders);
+app.get("/api/storage-status", handlers.storageStatus);
 
 module.exports = app;
 module.exports.meta = handlers.meta;

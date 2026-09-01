@@ -17,31 +17,87 @@
 const path = require("path");
 const fs = require("fs");
 
-// Se aceptan varios nombres de variable porque distintas integraciones de
-// Redis (Upstash directo, integraciones antiguas de "Vercel KV", etc.)
-// pueden llamarlas distinto. Revisa "Project Settings → Environment
-// Variables" en Vercel si quieres confirmar el nombre exacto en tu caso.
-const REDIS_URL =
-  process.env.UPSTASH_REDIS_REST_URL ||
-  process.env.KV_REST_API_URL ||
-  process.env.REDIS_URL;
-const REDIS_TOKEN =
-  process.env.UPSTASH_REDIS_REST_TOKEN ||
-  process.env.KV_REST_API_TOKEN ||
-  process.env.REDIS_TOKEN;
+// Busca las credenciales de Redis sin depender de un nombre exacto de
+// variable: cada integración las llama distinto (Upstash directo, las
+// antiguas de "Vercel KV", las del Marketplace con prefijo propio...).
+// Primero prueba los nombres conocidos y, si no encuentra ninguno, busca
+// cualquier par de variables <ALGO>_REST_URL / <ALGO>_REST_TOKEN.
+function detectRedisCredentials() {
+  const knownPairs = [
+    ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
+    ["KV_REST_API_URL", "KV_REST_API_TOKEN"],
+    ["REDIS_REST_URL", "REDIS_REST_TOKEN"]
+  ];
 
-const useRedis = !!(REDIS_URL && REDIS_TOKEN);
+  for (const [urlKey, tokenKey] of knownPairs) {
+    if (process.env[urlKey] && process.env[tokenKey]) {
+      return { url: process.env[urlKey], token: process.env[tokenKey], source: urlKey };
+    }
+  }
+
+  for (const key of Object.keys(process.env)) {
+    if (key.endsWith("_REST_URL")) {
+      const tokenKey = key.replace(/_REST_URL$/, "_REST_TOKEN");
+      if (process.env[key] && process.env[tokenKey]) {
+        return { url: process.env[key], token: process.env[tokenKey], source: key };
+      }
+    }
+  }
+
+  return null;
+}
+
+const credentials = detectRedisCredentials();
+const useRedis = !!credentials;
 const isVercel = !!process.env.VERCEL;
 
 let redis = null;
 if (useRedis) {
   // Se importa solo si hace falta, para no requerir el paquete en local.
   const { Redis } = require("@upstash/redis");
-  redis = new Redis({ url: REDIS_URL, token: REDIS_TOKEN });
+  redis = new Redis({ url: credentials.url, token: credentials.token });
 } else if (isVercel) {
   console.warn(
     "AVISO: corriendo en Vercel sin una base de datos Redis conectada. Los pedidos se guardan solo en memoria y se pueden perder. Conecta una integración de Redis (ej. Upstash) desde Vercel → Storage y vuelve a desplegar."
   );
+}
+
+// Diagnóstico: dice qué almacenamiento está en uso y, si es Redis, prueba
+// de verdad que las credenciales sirvan (escribe y lee un valor temporal).
+// No devuelve ninguna credencial, solo el NOMBRE de la variable encontrada.
+async function status() {
+  if (!useRedis) {
+    return {
+      type: isVercel ? "memory" : "file",
+      ok: !isVercel, // en memoria (Vercel sin Redis) NO es un estado válido
+      detail: isVercel
+        ? "Los pedidos se guardan solo en memoria y se pueden perder. Falta conectar una base de datos Redis."
+        : "Guardando en server/data/orders.json (modo local)."
+    };
+  }
+
+  try {
+    const probeKey = "quinoa:health-check";
+    const stamp = new Date().toISOString();
+    await redis.set(probeKey, stamp, { ex: 60 });
+    const readBack = await redis.get(probeKey);
+    const works = readBack === stamp;
+    return {
+      type: "redis",
+      ok: works,
+      envVar: credentials.source,
+      detail: works
+        ? "Base de datos conectada y funcionando: se escribió y se leyó un valor de prueba."
+        : "Se conectó a Redis pero el valor leído no coincide con el escrito."
+    };
+  } catch (err) {
+    return {
+      type: "redis",
+      ok: false,
+      envVar: credentials.source,
+      detail: "No se pudo conectar a Redis: " + (err && err.message ? err.message : String(err))
+    };
+  }
 }
 
 // ---------- Respaldo en memoria (solo si estamos en Vercel sin Redis) ----------
@@ -140,4 +196,12 @@ async function listOrders() {
   return readLocalFile().slice().reverse();
 }
 
-module.exports = { addOrder, findOrderBySessionId, markOrderPaid, listOrders, useRedis, isVercel };
+module.exports = {
+  addOrder,
+  findOrderBySessionId,
+  markOrderPaid,
+  listOrders,
+  status,
+  useRedis,
+  isVercel
+};

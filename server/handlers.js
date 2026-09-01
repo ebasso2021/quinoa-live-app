@@ -233,11 +233,30 @@ async function orders(req, res) {
   res.status(200).json(await store.listOrders());
 }
 
+// GET /api/storage-status — diagnóstico: ¿dónde se están guardando los
+// pedidos y funciona de verdad? Sirve para confirmar de un vistazo que la
+// base de datos quedó bien conectada. No expone ninguna credencial.
+async function storageStatus(req, res) {
+  const info = await store.status();
+  const paymentsReady = hasStripeKey;
+  res.status(200).json({
+    storage: info,
+    payments: {
+      ok: paymentsReady,
+      detail: paymentsReady
+        ? "Claves de Stripe configuradas: se pueden cobrar pedidos."
+        : "Faltan las claves de Stripe: nadie puede pagar todavía."
+    },
+    readyToTakeOrders: info.ok && paymentsReady
+  });
+}
+
 module.exports = {
   config,
   menu: menuHandler,
   checkout,
   orderStatus,
   orders,
+  storageStatus,
   meta: { PORT, APP_BASE_URL, BUSINESS_NAME, hasStripeKey }
 };
