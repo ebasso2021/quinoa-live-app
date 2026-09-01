@@ -11,9 +11,10 @@
   const detailsEl = document.getElementById("order-details");
 
   function money(cents, currency) {
-    return (cents / 100).toLocaleString("es-MX", {
+    // "en-CA" da el formato canadiense limpio: $10.50
+    return (cents / 100).toLocaleString("en-CA", {
       style: "currency",
-      currency: (currency || "usd").toUpperCase()
+      currency: (currency || "cad").toUpperCase()
     });
   }
 
@@ -38,7 +39,7 @@
           detailsEl.innerHTML = `
             <strong>Pedido #${o.orderId}</strong><br/>
             ${o.customer.orderType === "delivery" ? "Entrega a domicilio" : "Recoger en tienda"}<br/>
-            Total: ${money(o.total, "usd")}
+            Total: ${money(o.total, data.currency)}
           `;
         }
       } else {

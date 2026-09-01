@@ -52,8 +52,9 @@ centavos, ej. `1050` = $10.50), categorías y fotos. Los cambios se ven al
 recargar la app, sin necesidad de reinstalar nada.
 
 También puedes cambiar el nombre del negocio y la moneda en `.env`
-(`BUSINESS_NAME`) y en `server/menu.js` (`currency`, ej. `"usd"`, `"mxn"`,
-`"cop"`).
+(`BUSINESS_NAME`) y en `server/menu.js` (`currency`). La app está configurada
+en dólares canadienses (`"cad"`); si algún día cambias de país, ahí puedes
+poner `"usd"`, `"mxn"`, `"eur"`, etc.
 
 ## 5. Arrancar el servidor
 

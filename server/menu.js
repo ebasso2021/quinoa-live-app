@@ -1,10 +1,11 @@
 // Menú de ejemplo para "Quinoa". Edita libremente este archivo:
 // agrega, quita o cambia platillos, precios (en centavos), categorías o fotos.
-// Los precios están en centavos de USD (Stripe trabaja así). Ej: 1250 = $12.50
-// Cambia "currency" si tu moneda no es dólares (ej: "mxn", "cop", "ars", "eur").
+// Los precios están en centavos (Stripe trabaja así). Ej: 1250 = $12.50
+// La moneda es el dólar canadiense ("cad"). Si algún día cambias de país,
+// aquí puedes poner "usd", "mxn", "eur", etc.
 
 module.exports = {
-  currency: "usd",
+  currency: "cad",
   categories: [
     {
       id: "bowls",

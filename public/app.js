@@ -41,7 +41,8 @@
   }
 
   function money(cents) {
-    return (cents / 100).toLocaleString("es-MX", {
+    // "en-CA" da el formato canadiense limpio: $10.50
+    return (cents / 100).toLocaleString("en-CA", {
       style: "currency",
       currency: (state.config && state.config.currency || "usd").toUpperCase()
     });

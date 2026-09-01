@@ -176,6 +176,7 @@ async function orderStatus(req, res) {
 
     res.status(200).json({
       paid: session.payment_status === "paid",
+      currency: menu.currency,
       order: order || null
     });
   } catch (err) {
