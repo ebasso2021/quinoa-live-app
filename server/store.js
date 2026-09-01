@@ -66,12 +66,21 @@ if (useRedis) {
 // de verdad que las credenciales sirvan (escribe y lee un valor temporal).
 // No devuelve ninguna credencial, solo el NOMBRE de la variable encontrada.
 async function status() {
+  // Nombres (NUNCA valores) de las variables que podrían ser de una base de
+  // datos. Sirve para ver si la integración inyectó algo y cómo lo llamó.
+  const candidateNames = Object.keys(process.env)
+    .filter((k) => /REDIS|UPSTASH|^KV_|DATABASE|STORAGE/i.test(k))
+    .sort();
+
   if (!useRedis) {
     return {
       type: isVercel ? "memory" : "file",
       ok: !isVercel, // en memoria (Vercel sin Redis) NO es un estado válido
+      envVarsFound: candidateNames,
       detail: isVercel
-        ? "Los pedidos se guardan solo en memoria y se pueden perder. Falta conectar una base de datos Redis."
+        ? candidateNames.length
+          ? "Hay variables que parecen de base de datos, pero no forman un par URL + TOKEN reconocible. Revisa 'envVarsFound' para ver cómo se llaman."
+          : "No llegó ninguna variable de base de datos: falta conectar la base de datos al proyecto (Storage → tu base de datos → Projects → Connect Project) y volver a desplegar."
         : "Guardando en server/data/orders.json (modo local)."
     };
   }
