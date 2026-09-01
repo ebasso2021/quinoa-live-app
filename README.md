@@ -291,8 +291,12 @@ falta. (Esta página no muestra ninguna clave ni contraseña.)
    proyecto**.
 5. Vercel agrega solo las variables de entorno necesarias — no tienes que
    copiar ni pegar nada.
-6. **Vuelve a desplegar** para que la app las tome: pestaña **Deployments** →
-   menú (⋯) del último → **Redeploy**.
+6. **Vuelve a desplegar** para que la app tome las variables nuevas. Dos
+   formas, sirve cualquiera:
+   - Desde Vercel: pestaña **Deployments** → botón **⋯** al final de la
+     primera fila → **Redeploy**.
+   - Desde tu computadora: sube cualquier cambio con `git push`. Vercel
+     despliega solo, y ese despliegue nuevo también toma las variables.
 7. Abre `/api/storage-status` y confirma que diga `"type": "redis"` y
    `"ok": true`.
 
