@@ -1,0 +1,50 @@
+// Service worker simple: cachea lo esencial para que la app abra rápido y
+// funcione (mostrando lo último visto) aunque la conexión sea mala.
+// Las llamadas a /api/* SIEMPRE van a la red (nunca a la caché), porque el
+// menú, los precios y el pago deben ser siempre datos frescos y reales.
+const CACHE_NAME = "quinoa-cache-v1";
+const CORE_ASSETS = [
+  "/",
+  "/index.html",
+  "/styles.css",
+  "/app.js",
+  "/manifest.json",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png"
+];
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS)).then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
+
+  // Nunca cachear la API ni el checkout: siempre datos en vivo.
+  if (url.pathname.startsWith("/api/")) return;
+
+  event.respondWith(
+    caches.match(event.request).then((cached) => {
+      const network = fetch(event.request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => cached);
+      return cached || network;
+    })
+  );
+});

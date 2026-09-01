@@ -1,0 +1,16 @@
+{
+  "name": "Quinoa - Pedidos en línea",
+  "short_name": "Quinoa",
+  "description": "Ordena tus platillos favoritos de Quinoa y paga con tarjeta desde tu celular.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fbf8f2",
+  "theme_color": "#3f6b4a",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

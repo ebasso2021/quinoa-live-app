@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Quinoa — Pedidos en línea</title>
+<meta name="description" content="Ordena tus platillos favoritos de Quinoa y paga con tarjeta desde tu celular." />
+<meta name="theme-color" content="#3f6b4a" />
+
+<!-- PWA -->
+<link rel="manifest" href="/manifest.json" />
+<link rel="icon" href="/icons/icon-192.png" />
+
+<!-- Soporte para instalar en iPhone (Add to Home Screen) -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Quinoa" />
+<link rel="apple-touch-icon" href="/icons/icon-192.png" />
+
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-leaf">🌱</span>
+    <span id="business-name">Quinoa</span>
+  </div>
+  <button id="cart-button" class="cart-button" aria-label="Ver carrito">
+    🛒 <span id="cart-count" class="cart-count">0</span>
+  </button>
+</header>
+
+<div id="offline-banner" class="offline-banner" hidden>Sin conexión — algunas funciones pueden no estar disponibles.</div>
+<div id="payments-warning" class="payments-warning" hidden>
+  El pago con tarjeta aún no está activado por el negocio. Configura las claves de Stripe en el archivo .env.
+</div>
+
+<main id="menu-root" class="menu-root">
+  <p class="loading">Cargando menú…</p>
+</main>
+
+<!-- Carrito -->
+<aside id="cart-drawer" class="cart-drawer" aria-hidden="true">
+  <div class="cart-drawer-header">
+    <h2>Tu pedido</h2>
+    <button id="close-cart" class="icon-button" aria-label="Cerrar carrito">✕</button>
+  </div>
+  <div id="cart-items" class="cart-items"></div>
+
+  <form id="customer-form" class="customer-form">
+    <label>
+      Nombre completo
+      <input type="text" name="name" required autocomplete="name" />
+    </label>
+    <label>
+      Teléfono
+      <input type="tel" name="phone" required autocomplete="tel" />
+    </label>
+    <label>
+      Correo (opcional, para tu recibo)
+      <input type="email" name="email" autocomplete="email" />
+    </label>
+
+    <div class="order-type-toggle">
+      <label class="radio-pill">
+        <input type="radio" name="orderType" value="pickup" checked />
+        Recoger en tienda
+      </label>
+      <label class="radio-pill">
+        <input type="radio" name="orderType" value="delivery" />
+        Entrega a domicilio
+      </label>
+    </div>
+
+    <label id="address-field" hidden>
+      Dirección de entrega
+      <textarea name="address" rows="2"></textarea>
+    </label>
+
+    <label>
+      Notas para tu pedido (opcional)
+      <textarea name="notes" rows="2" placeholder="Ej: sin cebolla, tocar el timbre, etc."></textarea>
+    </label>
+  </form>
+
+  <div class="cart-summary">
+    <div class="cart-line"><span>Subtotal</span><span id="cart-subtotal">$0.00</span></div>
+    <div class="cart-line" id="cart-delivery-line" hidden><span>Entrega</span><span id="cart-delivery">$0.00</span></div>
+    <div class="cart-line cart-total"><span>Total</span><span id="cart-total">$0.00</span></div>
+  </div>
+
+  <p id="checkout-error" class="checkout-error" hidden></p>
+
+  <button id="checkout-button" class="checkout-button" disabled>
+    Pagar con tarjeta 💳
+  </button>
+</aside>
+<div id="cart-overlay" class="cart-overlay" hidden></div>
+
+<footer class="footer">
+  <p>Pagos procesados de forma segura por Stripe. Quinoa no almacena los datos de tu tarjeta.</p>
+</footer>
+
+<script src="/app.js"></script>
+</body>
+</html>
