@@ -1,19 +1,14 @@
-// Quinoa — app de pedidos con pago con tarjeta.
+// Lógica de la API de Quinoa, escrita de forma neutral: cada handler recibe
+// (req, res) usando solo lo que existe tanto en Express (servidor local)
+// como en las funciones de Vercel (req.query, req.body, res.status().json()).
 //
-// Este archivo está en la RAÍZ del proyecto e importa express directamente
-// porque así es como Vercel detecta automáticamente una app de Express y la
-// convierte en una función (soporte "cero configuración"). Si la app se
-// define en otra carpeta y aquí solo se re-exporta, Vercel NO la detecta y
-// publica el proyecto como si fuera solo un sitio estático.
-//
-// En local, server/index.js requiere este archivo y llama a app.listen().
+// Así el mismo código corre en los dos lados:
+//   - Local:  server/app.js monta estos handlers en Express.
+//   - Vercel: los archivos de la carpeta api/ los exportan uno por uno.
 require("dotenv").config();
-const path = require("path");
-const express = require("express");
-const cors = require("cors");
 const { nanoid } = require("nanoid");
-const menu = require("./server/menu");
-const store = require("./server/store");
+const menu = require("./menu");
+const store = require("./store");
 
 const PORT = process.env.PORT || 3000;
 const APP_BASE_URL =
@@ -27,13 +22,6 @@ const hasStripeKey =
 
 const stripe = hasStripeKey ? require("stripe")(process.env.STRIPE_SECRET_KEY) : null;
 
-const app = express();
-app.use(cors());
-app.use(express.json());
-// En Vercel, los archivos de /public los sirve Vercel directamente (ver
-// vercel.json) y esta línea no se usa. En local, sí sirve la app completa.
-app.use(express.static(path.join(__dirname, "public")));
-
 function findMenuItem(itemId) {
   for (const cat of menu.categories) {
     const found = cat.items.find((i) => i.id === itemId);
@@ -42,27 +30,39 @@ function findMenuItem(itemId) {
   return null;
 }
 
-// ---------- API ----------
+// Vercel no siempre parsea el cuerpo de la petición; Express sí (express.json).
+// Esto cubre los dos casos sin romper ninguno.
+function readBody(req) {
+  if (!req.body) return {};
+  if (typeof req.body === "string") {
+    try {
+      return JSON.parse(req.body);
+    } catch {
+      return {};
+    }
+  }
+  return req.body;
+}
 
-// Configuración pública (para que el frontend sepa el nombre del negocio, moneda, etc.)
-app.get("/api/config", (req, res) => {
-  res.json({
+// GET /api/config — datos públicos que el frontend necesita al arrancar.
+function config(req, res) {
+  res.status(200).json({
     businessName: BUSINESS_NAME,
     currency: menu.currency,
     paymentsEnabled: hasStripeKey,
     publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || null
   });
-});
+}
 
-// Menú completo
-app.get("/api/menu", (req, res) => {
-  res.json(menu);
-});
+// GET /api/menu — el menú completo.
+function menuHandler(req, res) {
+  res.status(200).json(menu);
+}
 
-// Crear una sesión de pago (Stripe Checkout) a partir del carrito.
-// SIEMPRE se recalculan los precios en el servidor usando menu.js — nunca se
-// confía en el precio que mande el navegador, por seguridad.
-app.post("/api/checkout", async (req, res) => {
+// POST /api/checkout — crea la sesión de pago en Stripe.
+// SIEMPRE se recalculan los precios aquí con menu.js: nunca se confía en el
+// precio que mande el navegador, por seguridad.
+async function checkout(req, res) {
   try {
     if (!hasStripeKey || !stripe) {
       return res.status(400).json({
@@ -71,7 +71,7 @@ app.post("/api/checkout", async (req, res) => {
       });
     }
 
-    const { items, customer } = req.body || {};
+    const { items, customer } = readBody(req);
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: "El carrito está vacío." });
     }
@@ -104,15 +104,10 @@ app.post("/api/checkout", async (req, res) => {
           }
         }
       });
-      orderItems.push({
-        id: menuItem.id,
-        name: menuItem.name,
-        price: menuItem.price,
-        qty
-      });
+      orderItems.push({ id: menuItem.id, name: menuItem.name, price: menuItem.price, qty });
     }
 
-    const deliveryFee = customer.orderType === "delivery" ? 300 : 0; // $3.00 de envío, ajustable
+    const deliveryFee = customer.orderType === "delivery" ? 300 : 0; // $3.00, ajustable
     if (deliveryFee > 0) {
       line_items.push({
         quantity: 1,
@@ -129,7 +124,7 @@ app.post("/api/checkout", async (req, res) => {
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-      payment_method_types: ["card"], // acepta Visa, Mastercard, Amex, etc.
+      payment_method_types: ["card"], // Visa, Mastercard, Amex, etc.
       line_items,
       success_url: `${APP_BASE_URL}/success.html?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${APP_BASE_URL}/cancel.html`,
@@ -156,21 +151,20 @@ app.post("/api/checkout", async (req, res) => {
       total: subtotal + deliveryFee
     });
 
-    res.json({ url: session.url });
+    res.status(200).json({ url: session.url });
   } catch (err) {
     console.error("Error creando la sesión de pago:", err);
     res.status(500).json({ error: "No se pudo iniciar el pago. Intenta de nuevo." });
   }
-});
+}
 
-// El frontend llama esto en la página de éxito para confirmar que el pago
-// realmente se completó (Stripe es la fuente de verdad, no el navegador).
-app.get("/api/order-status", async (req, res) => {
+// GET /api/order-status?session_id=... — confirma con Stripe que sí se pagó.
+async function orderStatus(req, res) {
   try {
     if (!hasStripeKey || !stripe) {
       return res.status(400).json({ error: "Pagos no configurados." });
     }
-    const { session_id } = req.query;
+    const session_id = (req.query || {}).session_id;
     if (!session_id) return res.status(400).json({ error: "Falta session_id." });
 
     const session = await stripe.checkout.sessions.retrieve(session_id);
@@ -180,7 +174,7 @@ app.get("/api/order-status", async (req, res) => {
       order = await store.markOrderPaid(session_id);
     }
 
-    res.json({
+    res.status(200).json({
       paid: session.payment_status === "paid",
       order: order || null
     });
@@ -188,13 +182,18 @@ app.get("/api/order-status", async (req, res) => {
     console.error("Error consultando el estado del pedido:", err);
     res.status(500).json({ error: "No se pudo confirmar el pedido." });
   }
-});
+}
 
-// Lista simple de pedidos para el dueño del negocio (sin autenticación —
-// pensado solo para uso local/interno; ver nota de seguridad en el README).
-app.get("/api/orders", async (req, res) => {
-  res.json(await store.listOrders());
-});
+// GET /api/orders — lista de pedidos (sin contraseña; ver nota en el README).
+async function orders(req, res) {
+  res.status(200).json(await store.listOrders());
+}
 
-module.exports = app;
-module.exports.config = { PORT, APP_BASE_URL, BUSINESS_NAME, hasStripeKey };
+module.exports = {
+  config,
+  menu: menuHandler,
+  checkout,
+  orderStatus,
+  orders,
+  meta: { PORT, APP_BASE_URL, BUSINESS_NAME, hasStripeKey }
+};
