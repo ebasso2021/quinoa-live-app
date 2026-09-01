@@ -1,7 +1,8 @@
 // Arranca el servidor localmente (npm start / npm run dev).
-// En Vercel no se usa este archivo — ahí la app corre como función
-// serverless a través de api/index.js.
-const app = require("./app");
+// La app en sí está en index.js, en la raíz del proyecto — ahí tiene que
+// estar para que Vercel la detecte. Este archivo solo la pone a escuchar
+// en un puerto para trabajar en tu computadora.
+const app = require("../index.js");
 const { PORT, APP_BASE_URL, BUSINESS_NAME, hasStripeKey } = app.config;
 
 app.listen(PORT, () => {
